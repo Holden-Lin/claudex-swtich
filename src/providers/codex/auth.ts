@@ -1,4 +1,4 @@
-import { copyFile, mkdir } from "fs/promises";
+import { chmod, copyFile, mkdir, writeFile } from "fs/promises";
 import {
   CODEX_AUTH_FILE,
   CODEX_ACCOUNTS_DIR,
@@ -38,7 +38,6 @@ export async function saveAccountAuth(
 ): Promise<void> {
   await ensureAccountsDir();
   const destPath = codexAccountAuthFile(accountKey);
-  const { writeFile } = await import("fs/promises");
   await writeFile(destPath, JSON.stringify(authData, null, 2), { mode: 0o600 });
 }
 
@@ -86,4 +85,5 @@ export async function snapshotActiveAuth(
   await ensureAccountsDir();
   const destPath = codexAccountAuthFile(accountKey);
   await copyFile(CODEX_AUTH_FILE, destPath);
+  await chmod(destPath, 0o600);
 }

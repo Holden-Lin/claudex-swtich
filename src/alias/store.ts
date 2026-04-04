@@ -3,7 +3,9 @@ import { CLAUDEX_DIR, ALIAS_REGISTRY_FILE } from "../lib/paths";
 import { readJson, writeJsonSecure } from "../lib/fs";
 import type { AliasRegistry, AliasEntry, AliasTarget } from "../types";
 
-const EMPTY_REGISTRY: AliasRegistry = { version: 1, aliases: [] };
+function emptyRegistry(): AliasRegistry {
+  return { version: 1, aliases: [] };
+}
 
 // Reserved words that cannot be used as aliases
 const RESERVED = new Set([
@@ -27,7 +29,7 @@ async function ensureDir(): Promise<void> {
 export async function loadAliases(): Promise<AliasRegistry> {
   const reg = await readJson<AliasRegistry>(
     ALIAS_REGISTRY_FILE,
-    EMPTY_REGISTRY,
+    emptyRegistry(),
   );
   if (!Array.isArray(reg.aliases)) {
     reg.aliases = [];

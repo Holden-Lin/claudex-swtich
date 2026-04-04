@@ -17,7 +17,9 @@ export async function importAccounts(): Promise<void> {
   let skipped = 0;
 
   // Import Claude profiles
-  imported += await importClaudeProfiles(reg);
+  const claudeResult = await importClaudeProfiles(reg);
+  imported += claudeResult.imported;
+  skipped += claudeResult.skipped;
 
   // Import Codex accounts
   const codexResult = await importCodexAccounts(reg);
@@ -38,10 +40,13 @@ export async function importAccounts(): Promise<void> {
   blank();
 }
 
-async function importClaudeProfiles(reg: AliasRegistry): Promise<number> {
-  if (!(await fileExists(CLAUDE_PROFILES_DIR))) return 0;
+async function importClaudeProfiles(
+  reg: AliasRegistry,
+): Promise<{ imported: number; skipped: number }> {
+  if (!(await fileExists(CLAUDE_PROFILES_DIR))) return { imported: 0, skipped: 0 };
 
   let imported = 0;
+  let skipped = 0;
   const entries = await readdir(CLAUDE_PROFILES_DIR, { withFileTypes: true });
 
   for (const entry of entries) {
@@ -52,6 +57,7 @@ async function importClaudeProfiles(reg: AliasRegistry): Promise<number> {
       console.log(
         chalk.dim(`  skip  ${name} (${aliasExists(reg, name) ? "alias already exists" : "invalid alias name"})`),
       );
+      skipped++;
       continue;
     }
 
@@ -64,7 +70,7 @@ async function importClaudeProfiles(reg: AliasRegistry): Promise<number> {
     imported++;
   }
 
-  return imported;
+  return { imported, skipped };
 }
 
 async function importCodexAccounts(

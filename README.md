@@ -1,0 +1,151 @@
+# claudex-switch
+
+**语言 / Languages:** [中文](./README.md) | [English](./README.en.md)
+
+一个统一管理 Claude Code 和 Codex 账号的 CLI 工具。支持别名切换、额度查看，适合在多个订阅账号、团队账号、API Key 之间频繁切换。
+
+融合了 [claude-switch](https://github.com/Holden-Lin/claude-switch) 和 [codex-auth](https://github.com/Loongphy/codex-auth) 的功能。
+
+## 特点
+
+- 统一管理 Claude Code 和 Codex 两套账号体系
+- 每个账号支持自定义别名，`claudex-switch <alias>` 一键切换
+- `claudex-switch list` 同时显示所有账号及当前额度
+- 薄别名层架构，不破坏原有工具数据（`~/.claude-profiles/` 和 `~/.codex/accounts/`）
+- Claude 支持 OAuth 订阅 + API Key
+- Codex 支持 ChatGPT OAuth + OpenAI API Key
+- macOS Keychain 凭证兼容
+
+## 安装
+
+```bash
+# 从 GitHub 安装
+npm install -g git+ssh://git@github.com/Holden-Lin/claudex-swtich.git
+
+# 或本地开发
+git clone git@github.com:Holden-Lin/claudex-swtich.git
+cd claudex-swtich
+bun install
+bun run build
+```
+
+## 快速开始
+
+```bash
+# 导入已有的 Claude 和 Codex 账号
+claudex-switch import
+
+# 查看所有账号
+claudex-switch list
+
+# 切换到指定别名
+claudex-switch holden
+
+# 添加新账号
+claudex-switch add my-claude
+claudex-switch add my-codex
+```
+
+### 导入已有账号
+
+如果你已经在用 `claude-switch` 或 `codex-auth`，可以一键导入：
+
+```bash
+claudex-switch import
+```
+
+工具会自动扫描 `~/.claude-profiles/` 和 `~/.codex/accounts/registry.json`，为每个账号创建别名。
+
+### 手动添加账号
+
+```bash
+claudex-switch add work
+```
+
+然后选择账号类型：
+
+- **Claude OAuth** — 使用 Claude 订阅（Pro、Max、Team 等）
+- **Claude API Key** — 使用 Anthropic API key
+- **Codex ChatGPT** — 使用 ChatGPT 登录（Plus、Pro、Team 等）
+- **Codex API Key** — 使用 OpenAI API key
+
+## 命令
+
+| 命令 | 说明 |
+|---|---|
+| `claudex-switch` | 交互式账号选择器 |
+| `claudex-switch <alias>` | 切换到指定别名（`use` 的快捷写法） |
+| `claudex-switch add <alias>` | 添加新账号 |
+| `claudex-switch use <alias>` | 切换到指定别名 |
+| `claudex-switch list` | 列出所有账号及额度 |
+| `claudex-switch current` | 显示当前活跃账号 |
+| `claudex-switch remove <alias>` | 删除指定账号 |
+| `claudex-switch import` | 从已有数据导入账号 |
+| `claudex-switch help` | 显示帮助 |
+
+**快捷方式:** `ls` = `list`，`rm` = `remove`
+
+## 输出示例
+
+```
+  Accounts
+
+  ── Claude ──
+    holden   oauth  Pro  holden@example.com
+  ▸ satoshi  oauth  Pro  satoshi@example.com
+
+  ── Codex ──
+  ▸ cx-main    chatgpt  Plus  alice@gmail.com       5hrem: 55%  wkrem: 88%
+    cx-team    chatgpt  Team  bob@company.com       5hrem: 0%   wkrem: 65%
+```
+
+- `▸` 表示当前活跃账号
+- `5hrem` / `wkrem` 分别表示 5 小时和每周的剩余额度百分比
+
+## 工作原理
+
+### 架构
+
+claudex-switch 采用「薄别名层」架构：
+
+```
+~/.claudex-switch/aliases.json    ← 统一别名注册表
+          │
+    ┌─────┴─────┐
+    ▼           ▼
+~/.claude-profiles/    ~/.codex/accounts/
+  (Claude 原生存储)      (Codex 原生存储)
+```
+
+别名注册表仅存储别名到底层账号的映射关系，不复制或转换凭证数据。
+
+### Claude 账号切换
+
+- macOS 上通过 Keychain 读写 `Claude Code-credentials`
+- 其他系统读写 `~/.claude/.credentials.json`
+- 同步 `~/.claude.json` 中的 `oauthAccount`
+- API Key 模式写入 `~/.claude/settings.json`
+
+### Codex 账号切换
+
+- 将对应的 `<key>.auth.json` 复制到 `~/.codex/auth.json`
+- 更新 `registry.json` 中的 `active_account_key`
+- 额度数据来自 `registry.json` 中缓存的 `last_usage`
+
+## 兼容性
+
+- 与 `claude-switch`、`codex-auth` 完全兼容，三个工具可以并行使用
+- macOS：已验证 Claude Code Keychain JSON 格式 + 旧版 hex 编码格式
+- Claude：Pro、Max、Team、Enterprise 订阅 + API Key
+- Codex：Free、Plus、Pro、Team 等 + OpenAI API Key
+
+## 注意事项
+
+- 这是非官方工具，依赖 Claude Code 和 Codex 当前的本地认证存储方式
+- Codex 切换后需要重启客户端才能生效
+- 凭证文件权限设置为 `0600`，但请注意 `~/.claude-profiles/` 下的凭证副本的安全风险
+- Codex 额度显示依赖 `registry.json` 中的缓存数据，如需刷新请使用 `codex-auth` 的 API 模式
+
+## License
+
+MIT

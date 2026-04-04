@@ -108,7 +108,7 @@ export async function list(): Promise<void> {
       if (info.usage) {
         const fiveH = formatUsage(info.usage.primaryPercent);
         const weekly = formatUsage(info.usage.secondaryPercent);
-        usageStr = `  5h: ${fiveH}  weekly: ${weekly}`;
+        usageStr = `  5h${chalk.dim("rem")}: ${fiveH}  wk${chalk.dim("rem")}: ${weekly}`;
       }
 
       console.log(
