@@ -222,7 +222,7 @@ async function addCodexChatGPT(alias: string): Promise<void> {
   info("Running codex login...");
   blank();
 
-  const proc = spawn("codex", ["auth", "login"], { stdio: "inherit" });
+  const proc = spawn("codex", ["login"], { stdio: "inherit" });
   const exitCode = await new Promise<number | null>((resolve) =>
     proc.on("close", resolve),
   );
@@ -247,8 +247,15 @@ async function addCodexChatGPT(alias: string): Promise<void> {
   const tokenInfo = decodeIdToken(auth.tokens.id_token);
   const email = tokenInfo?.email ?? "unknown";
   const userId = tokenInfo?.chatgpt_user_id ?? auth.tokens.account_id ?? "unknown";
-  const accountId = tokenInfo?.chatgpt_account_id ?? auth.tokens.account_id;
+  const accountId = tokenInfo?.chatgpt_account_id ?? auth.tokens.account_id ?? "unknown";
   const planType = tokenInfo?.plan_type ?? null;
+
+  if (!userId || userId === "unknown" || !accountId || accountId === "unknown") {
+    blank();
+    error("Could not extract account info from Codex auth token.");
+    blank();
+    process.exit(1);
+  }
 
   const accountKey = `${userId}::${accountId}`;
 
@@ -295,7 +302,10 @@ async function addCodexApiKey(alias: string): Promise<void> {
     },
   });
 
-  const accountKey = `apikey::${key.trim().slice(0, 16)}`;
+  // Use a hash of the key for the account key to avoid leaking key material
+  const { createHash } = await import("crypto");
+  const keyHash = createHash("sha256").update(key.trim()).digest("hex").slice(0, 16);
+  const accountKey = `apikey::${keyHash}`;
 
   // Create auth file
   const { saveAccountAuth } = await import("../providers/codex/auth");

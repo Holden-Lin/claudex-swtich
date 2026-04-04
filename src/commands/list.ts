@@ -1,10 +1,10 @@
 import chalk from "chalk";
 import { loadAliases } from "../alias/store";
-import { listProfiles, readState } from "../providers/claude/profiles";
+import { readState } from "../providers/claude/profiles";
 import { readCredentials } from "../providers/claude/credentials";
-import { claudeProfileAccountFile, claudeProfileCredentials } from "../lib/paths";
+import { claudeProfileAccountFile, claudeProfileCredentials, claudeProfileDataFile } from "../lib/paths";
 import { readJson } from "../lib/fs";
-import { loadRegistry, getActiveAccount } from "../providers/codex/registry";
+import { loadRegistry } from "../providers/codex/registry";
 import {
   blank,
   header,
@@ -132,9 +132,8 @@ async function getClaudeAccountInfo(
   let authMode = "oauth";
 
   try {
-    const { readJson: rj } = await import("../lib/fs");
-    const profileData = await rj<{ type: string; apiKey?: string }>(
-      (await import("../lib/paths")).claudeProfileDataFile(profileName),
+    const profileData = await readJson<{ type: string; apiKey?: string }>(
+      claudeProfileDataFile(profileName),
       { type: "oauth" },
     );
     authMode = profileData.type;

@@ -1,6 +1,6 @@
 import { mkdir } from "fs/promises";
 import { CLAUDEX_DIR, ALIAS_REGISTRY_FILE } from "../lib/paths";
-import { readJson, writeJson } from "../lib/fs";
+import { readJson, writeJsonSecure } from "../lib/fs";
 import type { AliasRegistry, AliasEntry, AliasTarget } from "../types";
 
 const EMPTY_REGISTRY: AliasRegistry = { version: 1, aliases: [] };
@@ -37,7 +37,7 @@ export async function loadAliases(): Promise<AliasRegistry> {
 
 export async function saveAliases(reg: AliasRegistry): Promise<void> {
   await ensureDir();
-  await writeJson(ALIAS_REGISTRY_FILE, reg);
+  await writeJsonSecure(ALIAS_REGISTRY_FILE, reg);
 }
 
 export function findAlias(

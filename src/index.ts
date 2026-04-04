@@ -11,7 +11,7 @@ import { list } from "./commands/list";
 import { remove } from "./commands/remove";
 import { current } from "./commands/current";
 import { importAccounts } from "./commands/import";
-import { blank, formatProvider, formatPlan } from "./lib/ui";
+import { blank, formatProvider } from "./lib/ui";
 
 const HELP = `
   ${chalk.bold("claudex-switch")} — Manage Claude Code and Codex accounts

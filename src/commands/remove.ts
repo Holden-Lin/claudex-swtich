@@ -1,4 +1,5 @@
 import chalk from "chalk";
+import { unlink } from "fs/promises";
 import { confirm } from "@inquirer/prompts";
 import { loadAliases, findAlias, removeAlias } from "../alias/store";
 import { removeProfile, profileExists } from "../providers/claude/profiles";
@@ -7,6 +8,8 @@ import {
   saveRegistry,
   removeAccountFromRegistry,
 } from "../providers/codex/registry";
+import { codexAccountAuthFile } from "../lib/paths";
+import { fileExists } from "../lib/fs";
 import { blank, success, error, formatProvider } from "../lib/ui";
 
 export async function remove(aliasName: string): Promise<void> {
@@ -51,6 +54,11 @@ export async function remove(aliasName: string): Promise<void> {
       );
       if (removed) {
         await saveRegistry(codexReg);
+      }
+      // Also remove the auth snapshot file
+      const authFile = codexAccountAuthFile(entry.target.accountKey);
+      if (await fileExists(authFile)) {
+        await unlink(authFile);
       }
     } catch {
       // Registry may not exist

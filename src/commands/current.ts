@@ -2,7 +2,7 @@ import chalk from "chalk";
 import { loadAliases } from "../alias/store";
 import { readState } from "../providers/claude/profiles";
 import { loadRegistry } from "../providers/codex/registry";
-import { blank, hint, formatType, formatPlan, formatProvider } from "../lib/ui";
+import { blank, hint, formatProvider } from "../lib/ui";
 
 export async function current(): Promise<void> {
   const aliasReg = await loadAliases();

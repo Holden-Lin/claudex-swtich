@@ -22,7 +22,7 @@ async function ensureAccountsDir(): Promise<void> {
 
 export async function loadRegistry(): Promise<CodexRegistry> {
   if (!(await fileExists(CODEX_REGISTRY_FILE))) {
-    return { ...DEFAULT_REGISTRY, accounts: [] };
+    return JSON.parse(JSON.stringify(DEFAULT_REGISTRY)) as CodexRegistry;
   }
   const reg = await readJson<CodexRegistry>(
     CODEX_REGISTRY_FILE,

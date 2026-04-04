@@ -2,7 +2,7 @@ import chalk from "chalk";
 import { readdir } from "fs/promises";
 import { CLAUDE_PROFILES_DIR } from "../lib/paths";
 import { fileExists } from "../lib/fs";
-import { loadAliases, saveAliases, aliasExists } from "../alias/store";
+import { loadAliases, saveAliases, aliasExists, isValidAlias } from "../alias/store";
 import { loadRegistry } from "../providers/codex/registry";
 import { blank, success, info, hint } from "../lib/ui";
 import type { AliasRegistry } from "../types";
@@ -48,9 +48,9 @@ async function importClaudeProfiles(reg: AliasRegistry): Promise<number> {
     if (!entry.isDirectory()) continue;
     const name = entry.name;
 
-    if (aliasExists(reg, name)) {
+    if (!isValidAlias(name) || aliasExists(reg, name)) {
       console.log(
-        chalk.dim(`  skip  ${name} (alias already exists)`),
+        chalk.dim(`  skip  ${name} (${aliasExists(reg, name) ? "alias already exists" : "invalid alias name"})`),
       );
       continue;
     }
@@ -100,10 +100,10 @@ async function importCodexAccounts(
       // Sanitize alias
       alias = alias.replace(/[/\\:*?"<>|.\s]/g, "-");
 
-      // Deduplicate
+      // Deduplicate and validate
       let finalAlias = alias;
       let counter = 1;
-      while (aliasExists(reg, finalAlias)) {
+      while (!isValidAlias(finalAlias) || aliasExists(reg, finalAlias)) {
         finalAlias = `${alias}-${counter}`;
         counter++;
         if (counter > 100) {
