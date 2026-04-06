@@ -16,11 +16,41 @@
 
 ## 安装
 
-```bash
-# 从 GitHub 安装
-npm install -g git+ssh://git@github.com/Holden-Lin/claudex-swtich.git
+### 方式一：安装脚本（推荐）
 
-# 或本地开发
+```bash
+curl -fsSL https://raw.githubusercontent.com/Holden-Lin/claudex-swtich/main/install.sh | bash
+```
+
+默认会安装最新 GitHub Release；如果仓库还没有发布过 release，会自动回退到 `main` 分支。
+
+也可以显式指定版本或引用：
+
+```bash
+# 安装指定版本 tag
+VERSION=1.0.0 curl -fsSL https://raw.githubusercontent.com/Holden-Lin/claudex-swtich/main/install.sh | bash
+
+# 安装指定分支 / commit / tag
+INSTALL_REF=main curl -fsSL https://raw.githubusercontent.com/Holden-Lin/claudex-swtich/main/install.sh | bash
+```
+
+### 方式二：Bun 全局安装
+
+```bash
+bun install -g git+https://github.com/Holden-Lin/claudex-swtich.git
+```
+
+### 方式三：Homebrew
+
+推送 `v*` tag 后，release workflow 会自动生成并更新 `Formula/claudex-switch.rb`。之后可以直接：
+
+```bash
+brew install --formula https://raw.githubusercontent.com/Holden-Lin/claudex-swtich/main/Formula/claudex-switch.rb
+```
+
+### 本地开发
+
+```bash
 git clone git@github.com:Holden-Lin/claudex-swtich.git
 cd claudex-swtich
 bun install
@@ -145,6 +175,13 @@ claudex-switch 采用「薄别名层」架构：
 - Codex 切换后需要重启客户端才能生效
 - 凭证文件权限设置为 `0600`，但请注意 `~/.claude-profiles/` 下的凭证副本的安全风险
 - Codex 额度显示依赖 `registry.json` 中的缓存数据，如需刷新请使用 `codex-auth` 的 API 模式
+
+## 发布
+
+- 推送 `v*` tag 后，GitHub Actions 会自动：
+- 用 Bun 编译 macOS / Linux 的单文件二进制
+- 上传 `tar.gz` 产物和 `checksums.txt` 到 GitHub Release
+- 生成并回写 `Formula/claudex-switch.rb`
 
 ## 参考项目
 

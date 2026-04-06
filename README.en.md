@@ -16,11 +16,41 @@ A unified CLI tool for managing both Claude Code and Codex accounts. Supports al
 
 ## Install
 
-```bash
-# Install from GitHub
-npm install -g git+ssh://git@github.com/Holden-Lin/claudex-swtich.git
+### Installer Script (Recommended)
 
-# Or develop locally
+```bash
+curl -fsSL https://raw.githubusercontent.com/Holden-Lin/claudex-swtich/main/install.sh | bash
+```
+
+By default this installs the latest GitHub Release. If no release exists yet, it falls back to the `main` branch.
+
+You can also pin a version or ref:
+
+```bash
+# Install a specific tag
+VERSION=1.0.0 curl -fsSL https://raw.githubusercontent.com/Holden-Lin/claudex-swtich/main/install.sh | bash
+
+# Install a specific branch / commit / tag
+INSTALL_REF=main curl -fsSL https://raw.githubusercontent.com/Holden-Lin/claudex-swtich/main/install.sh | bash
+```
+
+### Bun Global Install
+
+```bash
+bun install -g git+https://github.com/Holden-Lin/claudex-swtich.git
+```
+
+### Homebrew
+
+After the first `v*` release, the release workflow will generate and update `Formula/claudex-switch.rb` automatically. Then you can install with:
+
+```bash
+brew install --formula https://raw.githubusercontent.com/Holden-Lin/claudex-swtich/main/Formula/claudex-switch.rb
+```
+
+### Local Development
+
+```bash
 git clone git@github.com:Holden-Lin/claudex-swtich.git
 cd claudex-swtich
 bun install
@@ -145,6 +175,13 @@ Day-to-day switching and alias management only operate on this mapping layer. Un
 - Codex clients must be restarted after switching for changes to take effect
 - Credential files are set to `0600` permissions, but be aware of the security implications of storing credential copies in `~/.claude-profiles/`
 - Codex quota display uses cached data from `registry.json`; use `codex-auth`'s API mode for real-time refresh
+
+## Release
+
+- Pushing a `v*` tag triggers GitHub Actions to:
+- Build single-file Bun binaries for macOS and Linux
+- Upload `tar.gz` assets and `checksums.txt` to GitHub Releases
+- Regenerate and commit `Formula/claudex-switch.rb`
 
 ## References
 
