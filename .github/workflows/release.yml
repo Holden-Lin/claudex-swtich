@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Verify tests and build
+        run: bun run verify
+
       - name: Build release assets
         run: ./scripts/build-release-assets.sh ./release
 

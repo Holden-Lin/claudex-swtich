@@ -4,9 +4,16 @@ import { CREDENTIALS_FILE } from "../../lib/paths";
 import { readJson, writeJson } from "../../lib/fs";
 import type { CredentialsFile } from "../../types";
 
-const IS_MACOS = platform() === "darwin";
 const KEYCHAIN_SERVICE = "Claude Code-credentials";
 const HEX_PATTERN = /^[0-9a-f]+$/i;
+
+function useKeychain(path: string): boolean {
+  return (
+    platform() === "darwin" &&
+    path === CREDENTIALS_FILE &&
+    process.env.CLAUDEX_FORCE_FILE_CREDENTIALS !== "1"
+  );
+}
 
 function getKeychainAccount(): string {
   return process.env.USER ?? spawnSync("whoami").stdout.toString().trim();
@@ -84,7 +91,7 @@ async function writeJsonFile(
 export async function readCredentials(
   path: string = CREDENTIALS_FILE,
 ): Promise<CredentialsFile | null> {
-  if (IS_MACOS && path === CREDENTIALS_FILE) {
+  if (useKeychain(path)) {
     return readKeychain();
   }
   return readJsonFile(path);
@@ -94,7 +101,7 @@ export async function writeCredentials(
   creds: CredentialsFile,
   path: string = CREDENTIALS_FILE,
 ): Promise<void> {
-  if (IS_MACOS && path === CREDENTIALS_FILE) {
+  if (useKeychain(path)) {
     return writeKeychain(creds);
   }
   await writeJsonFile(creds, path);

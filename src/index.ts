@@ -13,6 +13,7 @@ import { rename } from "./commands/rename";
 import { purge } from "./commands/purge";
 import { current } from "./commands/current";
 import { importAccounts } from "./commands/import";
+import { refresh } from "./commands/refresh";
 import { blank, formatProvider } from "./lib/ui";
 
 const HELP = `
@@ -27,6 +28,7 @@ const HELP = `
     claudex-switch rename <from> <to>  Rename an alias
     claudex-switch remove <alias>      Remove an alias only
     claudex-switch purge <alias>       Delete an account and all linked aliases
+    claudex-switch refresh <alias>     Refresh and resave an account login
     claudex-switch current             Show active accounts
     claudex-switch import              Import existing accounts
     claudex-switch help                Show this help
@@ -157,6 +159,16 @@ async function main(): Promise<void> {
 
       case "current":
         await current();
+        break;
+
+      case "refresh":
+        if (!args[0]) {
+          console.error(
+            chalk.red("\n  Usage: claudex-switch refresh <alias>\n"),
+          );
+          process.exit(1);
+        }
+        await refresh(args[0]);
         break;
 
       case "import":

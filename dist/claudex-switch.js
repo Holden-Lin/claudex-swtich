@@ -5,43 +5,25 @@ var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-function __accessProp(key) {
-  return this[key];
-}
-var __toESMCache_node;
-var __toESMCache_esm;
 var __toESM = (mod, isNodeMode, target) => {
-  var canCache = mod != null && typeof mod === "object";
-  if (canCache) {
-    var cache = isNodeMode ? __toESMCache_node ??= new WeakMap : __toESMCache_esm ??= new WeakMap;
-    var cached = cache.get(mod);
-    if (cached)
-      return cached;
-  }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
   const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
   for (let key of __getOwnPropNames(mod))
     if (!__hasOwnProp.call(to, key))
       __defProp(to, key, {
-        get: __accessProp.bind(mod, key),
+        get: () => mod[key],
         enumerable: true
       });
-  if (canCache)
-    cache.set(mod, to);
   return to;
 };
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
-var __returnValue = (v) => v;
-function __exportSetter(name, newValue) {
-  this[name] = __returnValue.bind(null, newValue);
-}
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, {
       get: all[name],
       enumerable: true,
       configurable: true,
-      set: __exportSetter.bind(all, name)
+      set: (newValue) => all[name] = () => newValue
     });
 };
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
@@ -2192,6 +2174,7 @@ Object.defineProperties(createChalk.prototype, styles2);
 var chalk = createChalk();
 var chalkStderr = createChalk({ level: stderrColor ? stderrColor.level : 0 });
 var source_default = chalk;
+
 // node_modules/@inquirer/core/dist/esm/lib/key.js
 var isUpKey = (key, keybindings = []) => key.name === "up" || keybindings.includes("vim") && key.name === "k" || keybindings.includes("emacs") && key.ctrl && key.name === "p";
 var isDownKey = (key, keybindings = []) => key.name === "down" || keybindings.includes("vim") && key.name === "j" || keybindings.includes("emacs") && key.ctrl && key.name === "n";
@@ -2336,7 +2319,7 @@ var effectScheduler = {
 // node_modules/@inquirer/core/dist/esm/lib/use-state.js
 function useState(defaultValue) {
   return withPointer((pointer) => {
-    const setState = AsyncResource2.bind(function setState2(newValue) {
+    const setState = AsyncResource2.bind(function setState(newValue) {
       if (pointer.get() !== newValue) {
         pointer.set(newValue);
         handleChange();
@@ -3646,9 +3629,11 @@ init_paths();
 init_fs();
 import { platform } from "os";
 import { spawnSync } from "child_process";
-var IS_MACOS = platform() === "darwin";
 var KEYCHAIN_SERVICE = "Claude Code-credentials";
 var HEX_PATTERN = /^[0-9a-f]+$/i;
+function useKeychain(path) {
+  return platform() === "darwin" && path === CREDENTIALS_FILE && process.env.CLAUDEX_FORCE_FILE_CREDENTIALS !== "1";
+}
 function getKeychainAccount() {
   return process.env.USER ?? spawnSync("whoami").stdout.toString().trim();
 }
@@ -3706,13 +3691,13 @@ async function writeJsonFile(creds, path) {
   await writeJson(path, creds);
 }
 async function readCredentials(path = CREDENTIALS_FILE) {
-  if (IS_MACOS && path === CREDENTIALS_FILE) {
+  if (useKeychain(path)) {
     return readKeychain();
   }
   return readJsonFile(path);
 }
 async function writeCredentials(creds, path = CREDENTIALS_FILE) {
-  if (IS_MACOS && path === CREDENTIALS_FILE) {
+  if (useKeychain(path)) {
     return writeKeychain(creds);
   }
   await writeJsonFile(creds, path);
@@ -3872,6 +3857,9 @@ async function writeProfileData(name, data) {
 async function profileExists(name) {
   return fileExists(claudeProfileDataFile(name));
 }
+async function getProfileData(name) {
+  return readProfileData(name);
+}
 async function addOAuthProfile(name, fromCredentials = CREDENTIALS_FILE) {
   await ensureDir2(claudeProfileDir(name));
   await copyCredentials(fromCredentials, claudeProfileCredentials(name));
@@ -3920,6 +3908,25 @@ async function switchProfile(name) {
   }
   await writeState({ active: name });
   return targetData;
+}
+async function snapshotActiveOAuthProfile(name) {
+  if (!await profileExists(name)) {
+    throw new Error(`Profile "${name}" does not exist`);
+  }
+  const data = await readProfileData(name);
+  if (data.type !== "oauth") {
+    throw new Error(`Profile "${name}" is not an OAuth profile`);
+  }
+  const currentCreds = await readCredentials(CREDENTIALS_FILE);
+  if (!currentCreds) {
+    throw new Error("No active Claude credentials found");
+  }
+  await ensureDir2(claudeProfileDir(name));
+  await copyCredentials(CREDENTIALS_FILE, claudeProfileCredentials(name));
+  const currentAccount = await readOAuthAccount();
+  if (currentAccount) {
+    await writeJson(claudeProfileAccountFile(name), currentAccount);
+  }
 }
 async function removeProfile(name) {
   if (!await profileExists(name)) {
@@ -4719,6 +4726,171 @@ async function importCodexAccounts(reg) {
   return { imported, skipped };
 }
 
+// src/commands/refresh.ts
+import { spawn as spawn2 } from "child_process";
+init_fs();
+init_paths();
+init_auth();
+async function refresh(aliasOrName) {
+  blank();
+  const aliasReg = await loadAliases();
+  const entry = findAlias(aliasReg, aliasOrName);
+  if (!entry) {
+    error(`Alias "${aliasOrName}" not found.`);
+    hint(`Run ${source_default.cyan("claudex-switch list")} to see your accounts`);
+    blank();
+    process.exit(1);
+  }
+  if (entry.target.provider === "claude") {
+    await refreshClaude(entry.alias, entry.target.profileName);
+  } else {
+    await refreshCodex(entry.alias, entry.target.accountKey);
+  }
+}
+async function refreshClaude(alias, profileName) {
+  if (!await profileExists(profileName)) {
+    error(`Claude profile "${profileName}" no longer exists.`);
+    hint("The underlying profile may have been removed.");
+    blank();
+    process.exit(1);
+  }
+  const profile = await getProfileData(profileName);
+  if (profile.type !== "oauth") {
+    error("Claude API key accounts do not need refresh.");
+    blank();
+    process.exit(1);
+  }
+  const savedAccount = await readJson(claudeProfileAccountFile(profileName), null);
+  await switchProfile(profileName);
+  info(`Opening Claude login for ${source_default.bold(alias)}...`);
+  blank();
+  const exitCode = await runLoginCommand("claude", [
+    "auth",
+    "login"
+  ]);
+  if (exitCode !== 0) {
+    blank();
+    error("Claude login failed or was cancelled.");
+    hint(`If Claude refuses the current session, run ${source_default.cyan("claude auth logout")} and retry.`);
+    blank();
+    process.exit(1);
+  }
+  const currentAccount = await readOAuthAccount();
+  if (!matchesClaudeAccount(savedAccount, currentAccount)) {
+    await switchProfile(profileName);
+    blank();
+    error(`Claude login completed for a different account (${formatClaudeIdentity(currentAccount)}).`);
+    hint(`Retry and sign in as ${source_default.cyan(savedAccount?.emailAddress ?? savedAccount?.accountUuid ?? alias)}.`);
+    blank();
+    process.exit(1);
+  }
+  try {
+    await snapshotActiveOAuthProfile(profileName);
+  } catch (err) {
+    await switchProfile(profileName);
+    blank();
+    error(`Could not save refreshed Claude credentials: ${err instanceof Error ? err.message : String(err)}`);
+    blank();
+    process.exit(1);
+  }
+  const creds = await readCredentials();
+  const account = await readOAuthAccount();
+  const label = formatPlan(creds?.claudeAiOauth?.subscriptionType ?? null);
+  const email = account?.emailAddress ? `  ${source_default.dim(account.emailAddress)}` : "";
+  success(`Refreshed ${source_default.bold(alias)}  ${formatProvider("claude")}  ${formatType("oauth")}  ${label}${email}`);
+  blank();
+}
+async function refreshCodex(alias, accountKey) {
+  const reg = await loadRegistry();
+  const account = findAccountByKey(reg, accountKey);
+  if (!account) {
+    error("Codex account not found in registry.");
+    hint("The account may have been removed by codex-auth.");
+    blank();
+    process.exit(1);
+  }
+  if (account.auth_mode === "apikey") {
+    error("Codex API key accounts do not need refresh.");
+    blank();
+    process.exit(1);
+  }
+  try {
+    await switchToAccount(accountKey);
+  } catch (err) {
+    error(`Failed to prepare Codex auth: ${err instanceof Error ? err.message : String(err)}`);
+    blank();
+    process.exit(1);
+  }
+  setActiveAccount(reg, accountKey);
+  await saveRegistry(reg);
+  info(`Opening Codex login for ${source_default.bold(alias)}...`);
+  blank();
+  const exitCode = await runLoginCommand("codex", ["login"]);
+  if (exitCode !== 0) {
+    blank();
+    error("Codex login failed or was cancelled.");
+    hint(`If Codex reports an expired refresh token, run ${source_default.cyan("codex logout")} and retry.`);
+    blank();
+    process.exit(1);
+  }
+  const auth = await readActiveAuth();
+  if (!auth || !auth.tokens) {
+    await switchToAccount(accountKey);
+    blank();
+    error("Could not read Codex auth after login.");
+    blank();
+    process.exit(1);
+  }
+  const tokenInfo = decodeIdToken(auth.tokens.id_token);
+  const email = tokenInfo?.email ?? account.email ?? "unknown";
+  const userId = tokenInfo?.chatgpt_user_id ?? auth.tokens.account_id ?? "unknown";
+  const accountId = tokenInfo?.chatgpt_account_id ?? auth.tokens.account_id ?? "unknown";
+  const refreshedKey = `${userId}::${accountId}`;
+  if (refreshedKey !== accountKey) {
+    await switchToAccount(accountKey);
+    blank();
+    error(`Codex login completed for a different account (${email}).`);
+    hint(`Retry and sign in as ${source_default.cyan(account.email || alias)}.`);
+    blank();
+    process.exit(1);
+  }
+  await snapshotActiveAuth(accountKey);
+  account.email = tokenInfo?.email ?? account.email;
+  account.chatgpt_user_id = userId;
+  account.chatgpt_account_id = accountId;
+  account.plan = tokenInfo?.plan_type ?? account.plan;
+  account.auth_mode = "chatgpt";
+  setActiveAccount(reg, accountKey);
+  await saveRegistry(reg);
+  success(`Refreshed ${source_default.bold(alias)}  ${formatProvider("codex")}  ${formatPlan(account.plan ?? null)}  ${source_default.dim(account.email || "")}`);
+  blank();
+}
+function matchesClaudeAccount(expected, actual) {
+  if (!expected || !actual)
+    return true;
+  const expectedId = expected.accountUuid ?? expected.emailAddress ?? null;
+  const actualId = actual.accountUuid ?? actual.emailAddress ?? null;
+  if (!expectedId || !actualId)
+    return true;
+  return expectedId === actualId;
+}
+function formatClaudeIdentity(account) {
+  return account?.emailAddress ?? account?.accountUuid ?? "unknown";
+}
+async function runLoginCommand(command, args) {
+  try {
+    const proc = spawn2(command, args, { stdio: "inherit" });
+    return await new Promise((resolve, reject) => {
+      proc.on("close", resolve);
+      proc.on("error", reject);
+    });
+  } catch (err) {
+    error(`Failed to start ${command}: ${err instanceof Error ? err.message : String(err)}`);
+    blank();
+    process.exit(1);
+  }
+}
+
 // src/index.ts
 var HELP = `
   ${source_default.bold("claudex-switch")} — Manage Claude Code and Codex accounts
@@ -4732,6 +4904,7 @@ var HELP = `
     claudex-switch rename <from> <to>  Rename an alias
     claudex-switch remove <alias>      Remove an alias only
     claudex-switch purge <alias>       Delete an account and all linked aliases
+    claudex-switch refresh <alias>     Refresh and resave an account login
     claudex-switch current             Show active accounts
     claudex-switch import              Import existing accounts
     claudex-switch help                Show this help
@@ -4833,6 +5006,15 @@ async function main() {
         break;
       case "current":
         await current();
+        break;
+      case "refresh":
+        if (!args[0]) {
+          console.error(source_default.red(`
+  Usage: claudex-switch refresh <alias>
+`));
+          process.exit(1);
+        }
+        await refresh(args[0]);
         break;
       case "import":
         await importAccounts();

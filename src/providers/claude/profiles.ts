@@ -157,6 +157,32 @@ export async function switchProfile(name: string): Promise<ProfileData> {
   return targetData;
 }
 
+export async function snapshotActiveOAuthProfile(
+  name: string,
+): Promise<void> {
+  if (!(await profileExists(name))) {
+    throw new Error(`Profile "${name}" does not exist`);
+  }
+
+  const data = await readProfileData(name);
+  if (data.type !== "oauth") {
+    throw new Error(`Profile "${name}" is not an OAuth profile`);
+  }
+
+  const currentCreds = await readCredentials(CREDENTIALS_FILE);
+  if (!currentCreds) {
+    throw new Error("No active Claude credentials found");
+  }
+
+  await ensureDir(claudeProfileDir(name));
+  await copyCredentials(CREDENTIALS_FILE, claudeProfileCredentials(name));
+
+  const currentAccount = await readOAuthAccount();
+  if (currentAccount) {
+    await writeJson(claudeProfileAccountFile(name), currentAccount);
+  }
+}
+
 export async function removeProfile(name: string): Promise<void> {
   if (!(await profileExists(name))) {
     throw new Error(`Profile "${name}" does not exist`);

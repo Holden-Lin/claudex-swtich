@@ -54,6 +54,8 @@ brew install --formula https://raw.githubusercontent.com/Holden-Lin/claudex-swti
 git clone git@github.com:Holden-Lin/claudex-swtich.git
 cd claudex-swtich
 bun install
+bun run test
+bun run verify
 bun run build
 ```
 
@@ -72,6 +74,10 @@ claudex-switch holden
 # 添加新账号
 claudex-switch add my-claude
 claudex-switch add my-codex
+
+# 刷新已保存的登录态
+claudex-switch refresh holden
+claudex-switch refresh satoshix
 ```
 
 ### 导入已有账号
@@ -107,6 +113,7 @@ claudex-switch add work
 | `claudex-switch use <alias>` | 切换到指定别名 |
 | `claudex-switch list` | 列出所有账号及额度 |
 | `claudex-switch rename <old> <new>` | 重命名别名 |
+| `claudex-switch refresh <alias>` | 重新登录并更新该别名保存的凭证快照 |
 | `claudex-switch current` | 显示当前活跃账号 |
 | `claudex-switch remove <alias>` | 只删除别名，不删除底层账号 |
 | `claudex-switch purge <alias>` | 删除底层账号及其关联别名 |
@@ -114,6 +121,18 @@ claudex-switch add work
 | `claudex-switch help` | 显示帮助 |
 
 **快捷方式:** `ls` = `list`，`rm` = `remove`
+
+### 刷新过期登录
+
+当 Claude OAuth 或 Codex ChatGPT 的本地登录态过期时，可以按别名刷新：
+
+```bash
+claudex-switch refresh <alias>
+```
+
+- Claude OAuth：切换到对应 profile，执行 `claude auth login`，然后把当前凭证重新保存回该 profile
+- Codex ChatGPT：切换到对应账号快照，执行 `codex login`，然后把新的 `~/.codex/auth.json` 回写到该别名
+- API Key 类型账号不需要 refresh
 
 ## 输出示例
 
@@ -178,6 +197,7 @@ claudex-switch 采用「薄别名层」架构：
 
 ## 发布
 
+- 发布前必须先通过 `bun run verify`
 - 推送 `v*` tag 后，GitHub Actions 会自动：
 - 用 Bun 编译 macOS / Linux 的单文件二进制
 - 上传 `tar.gz` 产物和 `checksums.txt` 到 GitHub Release

@@ -54,6 +54,8 @@ brew install --formula https://raw.githubusercontent.com/Holden-Lin/claudex-swti
 git clone git@github.com:Holden-Lin/claudex-swtich.git
 cd claudex-swtich
 bun install
+bun run test
+bun run verify
 bun run build
 ```
 
@@ -72,6 +74,10 @@ claudex-switch holden
 # Add a new account
 claudex-switch add my-claude
 claudex-switch add my-codex
+
+# Refresh a saved login
+claudex-switch refresh holden
+claudex-switch refresh satoshix
 ```
 
 ### Import Existing Accounts
@@ -107,6 +113,7 @@ Then choose an account type:
 | `claudex-switch use <alias>` | Switch to an account |
 | `claudex-switch list` | List all accounts with quota info |
 | `claudex-switch rename <old> <new>` | Rename an alias |
+| `claudex-switch refresh <alias>` | Re-login and update the saved credential snapshot for that alias |
 | `claudex-switch current` | Show active accounts |
 | `claudex-switch remove <alias>` | Remove an alias only |
 | `claudex-switch purge <alias>` | Delete an account and its linked aliases |
@@ -114,6 +121,18 @@ Then choose an account type:
 | `claudex-switch help` | Show help |
 
 **Shortcuts:** `ls` = `list`, `rm` = `remove`
+
+### Refresh Expired Logins
+
+When a local Claude OAuth or Codex ChatGPT login expires, refresh it by alias:
+
+```bash
+claudex-switch refresh <alias>
+```
+
+- Claude OAuth: switches to the target profile, runs `claude auth login`, then saves the current credentials back into that profile
+- Codex ChatGPT: switches to the target auth snapshot, runs `codex login`, then writes the new `~/.codex/auth.json` back to that alias
+- API key accounts do not need refresh
 
 ## Sample Output
 
@@ -178,6 +197,7 @@ Day-to-day switching and alias management only operate on this mapping layer. Un
 
 ## Release
 
+- `bun run verify` must pass before a release is published
 - Pushing a `v*` tag triggers GitHub Actions to:
 - Build single-file Bun binaries for macOS and Linux
 - Upload `tar.gz` assets and `checksums.txt` to GitHub Releases

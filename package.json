@@ -12,7 +12,9 @@
     "build:binary": "bun build ./src/index.ts --compile --outfile ./dist/claudex-switch",
     "build:release": "./scripts/build-release-assets.sh ./release",
     "dev": "bun run src/index.ts",
-    "prepublishOnly": "bun run build"
+    "test": "bun test --preload ./tests/preload.ts",
+    "verify": "bun run test && bun run build && bun ./dist/claudex-switch.js help >/dev/null",
+    "prepublishOnly": "bun run verify"
   },
   "repository": {
     "type": "git",
