@@ -4935,6 +4935,189 @@ async function runLoginCommand(command, args) {
   }
 }
 
+// src/lib/update.ts
+import { spawnSync as spawnSync3 } from "child_process";
+// package.json
+var package_default = {
+  name: "claudex-switch",
+  version: "1.1.1",
+  description: "Switch between Claude Code and Codex accounts with ease",
+  type: "module",
+  bin: {
+    "claudex-switch": "./dist/claudex-switch.js"
+  },
+  files: ["dist"],
+  scripts: {
+    build: "bun build ./src/index.ts --target node --outfile ./dist/claudex-switch.js",
+    "build:binary": "bun build ./src/index.ts --compile --outfile ./dist/claudex-switch",
+    "build:release": "./scripts/build-release-assets.sh ./release",
+    dev: "bun run src/index.ts",
+    test: "bun test --preload ./tests/preload.ts",
+    verify: "bun run test && bun run build && bun ./dist/claudex-switch.js help >/dev/null",
+    prepublishOnly: "bun run verify"
+  },
+  repository: {
+    type: "git",
+    url: "git+https://github.com/Holden-Lin/claudex-switch.git"
+  },
+  homepage: "https://github.com/Holden-Lin/claudex-switch",
+  bugs: {
+    url: "https://github.com/Holden-Lin/claudex-switch/issues"
+  },
+  keywords: ["claude", "codex", "account-switcher", "cli", "bun"],
+  license: "MIT",
+  engines: {
+    bun: ">=1.3.5"
+  },
+  dependencies: {
+    chalk: "^5.4.1",
+    "@inquirer/prompts": "^7.5.0"
+  },
+  devDependencies: {
+    "@types/bun": "^1.2.0",
+    typescript: "^5.7.0"
+  }
+};
+
+// src/lib/update.ts
+var REPO = "Holden-Lin/claudex-switch";
+var LATEST_RELEASE_URL = `https://github.com/${REPO}/releases/latest`;
+var BUN_INSTALL_SPEC = `git+https://github.com/${REPO}.git`;
+var HOMEBREW_FORMULA_URL = `https://raw.githubusercontent.com/${REPO}/main/Formula/claudex-switch.rb`;
+var SKIP_AUTO_UPDATE_ENV = "CLAUDEX_SKIP_AUTO_UPDATE";
+var DISABLE_AUTO_UPDATE_ENV = "CLAUDEX_DISABLE_AUTO_UPDATE";
+var CURRENT_VERSION = normalizeVersion(package_default.version);
+function normalizeVersion(version) {
+  return version.replace(/^v/, "");
+}
+function compareVersions(a, b) {
+  const aParts = normalizeVersion(a).split(/[.-]/);
+  const bParts = normalizeVersion(b).split(/[.-]/);
+  const length = Math.max(aParts.length, bParts.length);
+  for (let i = 0;i < length; i += 1) {
+    const aValue = Number.parseInt(aParts[i] ?? "0", 10);
+    const bValue = Number.parseInt(bParts[i] ?? "0", 10);
+    if (aValue > bValue)
+      return 1;
+    if (aValue < bValue)
+      return -1;
+  }
+  return 0;
+}
+function extractVersionFromReleaseUrl(url) {
+  const match = url.match(/\/tag\/(v?[^/?#]+)$/);
+  return match ? normalizeVersion(match[1]) : null;
+}
+async function fetchLatestReleaseVersion(fetchImpl = fetch) {
+  try {
+    const response = await fetchImpl(LATEST_RELEASE_URL, {
+      headers: { "user-agent": "claudex-switch" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(2500)
+    });
+    if (!response.ok) {
+      return null;
+    }
+    return extractVersionFromReleaseUrl(response.url);
+  } catch {
+    return null;
+  }
+}
+function detectInstallMethod(argv = process.argv, execPath = process.execPath, runCommand = spawnSync3) {
+  const brewPrefix = readCommandStdout(runCommand("brew", ["--prefix"], {
+    encoding: "utf-8",
+    stdio: ["ignore", "pipe", "ignore"]
+  }));
+  const cliPath = resolveCliPath(argv, execPath);
+  if (brewPrefix && cliPath && cliPath.startsWith(brewPrefix)) {
+    return "brew";
+  }
+  const bunCheck = runCommand("bun", ["--version"], {
+    stdio: ["ignore", "ignore", "ignore"]
+  });
+  if (bunCheck.status === 0 && !bunCheck.error) {
+    return "bun";
+  }
+  return null;
+}
+async function runAutoUpdateIfNeeded(options = {}) {
+  const argv = options.argv ?? process.argv;
+  const env2 = options.env ?? process.env;
+  const execPath = options.execPath ?? process.execPath;
+  const fetchLatestVersion = options.fetchLatestVersion ?? fetchLatestReleaseVersion;
+  const runCommand = options.runCommand ?? spawnSync3;
+  if (env2[SKIP_AUTO_UPDATE_ENV] === "1" || env2[DISABLE_AUTO_UPDATE_ENV] === "1") {
+    return { action: "continue" };
+  }
+  const latestVersion = await fetchLatestVersion();
+  if (!latestVersion || compareVersions(latestVersion, CURRENT_VERSION) <= 0) {
+    return { action: "continue" };
+  }
+  const installMethod = detectInstallMethod(argv, execPath, runCommand);
+  if (!installMethod) {
+    return { action: "continue" };
+  }
+  info(`Updating claudex-switch from v${CURRENT_VERSION} to v${latestVersion}`);
+  hint("Running self-update before continuing...");
+  const updateEnv = {
+    ...env2,
+    [SKIP_AUTO_UPDATE_ENV]: "1"
+  };
+  const updated = installMethod === "brew" ? updateWithHomebrew(runCommand, updateEnv) : updateWithBun(latestVersion, runCommand, updateEnv);
+  if (!updated) {
+    hint("Auto-update failed; continuing with current version.");
+    return { action: "continue" };
+  }
+  const restart = runCommand(argv[0] ?? execPath, argv.slice(1), {
+    env: updateEnv,
+    stdio: "inherit"
+  });
+  return { action: "restart", exitCode: restart.status ?? 1 };
+}
+function updateWithHomebrew(runCommand, env2) {
+  const result = runCommand("brew", ["install", "--formula", HOMEBREW_FORMULA_URL], {
+    env: env2,
+    stdio: "inherit"
+  });
+  return result.status === 0 && !result.error;
+}
+function updateWithBun(version, runCommand, env2) {
+  const installArgs = [
+    "install",
+    "-g",
+    `${BUN_INSTALL_SPEC}#v${normalizeVersion(version)}`
+  ];
+  const directInstall = runCommand("bun", installArgs, {
+    env: env2,
+    stdio: "inherit"
+  });
+  if (directInstall.status === 0 && !directInstall.error) {
+    return true;
+  }
+  const remove2 = runCommand("bun", ["remove", "-g", "claudex-switch"], {
+    env: env2,
+    stdio: "inherit"
+  });
+  if (remove2.status !== 0 || remove2.error) {
+    return false;
+  }
+  const reinstall = runCommand("bun", installArgs, {
+    env: env2,
+    stdio: "inherit"
+  });
+  return reinstall.status === 0 && !reinstall.error;
+}
+function readCommandStdout(result) {
+  return typeof result.stdout === "string" ? result.stdout.trim() : "";
+}
+function resolveCliPath(argv, execPath) {
+  const scriptPath = argv[1];
+  if (scriptPath && /[\\/]/.test(scriptPath)) {
+    return scriptPath;
+  }
+  return argv[0] || execPath || null;
+}
+
 // src/index.ts
 var HELP = `
   ${source_default.bold("claudex-switch")} — Manage Claude Code and Codex accounts
@@ -4997,6 +5180,10 @@ async function interactivePicker() {
 async function main() {
   const [command, ...args] = process.argv.slice(2);
   try {
+    const autoUpdate = await runAutoUpdateIfNeeded();
+    if (autoUpdate.action === "restart") {
+      process.exit(autoUpdate.exitCode);
+    }
     switch (command) {
       case "add":
         if (!args[0]) {

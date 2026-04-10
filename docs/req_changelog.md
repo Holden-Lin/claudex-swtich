@@ -12,6 +12,9 @@
   - 原话：`can you open a private browsing window so that I dont need to log out? for the others, just implement`
   - 审计结论：实现基本正确，频繁重新认证最可能的原因是登录后注销浏览器导致 OAuth token 被撤销
   - 修复：(1) 登录时通过 BROWSER 环境变量打开隐私窗口 (2) 修复同 profile 切换时覆盖新鲜凭据的 bug (3) 凭据文件权限从 0o644 改为 0o600
+- 2026-04-10
+  - 原话：`增加一个功能，每次用户运行的时候先自动检查更新，有的话自动更新`
+  - 实现：每次启动前检查最新 GitHub Release；如发现新版本，则按当前安装方式自动升级并重启原命令；支持 `CLAUDEX_DISABLE_AUTO_UPDATE=1` 临时关闭
 
 ## 待推送需求
 

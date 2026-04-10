@@ -15,6 +15,7 @@ import { current } from "./commands/current";
 import { importAccounts } from "./commands/import";
 import { refresh } from "./commands/refresh";
 import { blank, formatProvider } from "./lib/ui";
+import { runAutoUpdateIfNeeded } from "./lib/update";
 
 const HELP = `
   ${chalk.bold("claudex-switch")} — Manage Claude Code and Codex accounts
@@ -100,6 +101,11 @@ async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
 
   try {
+    const autoUpdate = await runAutoUpdateIfNeeded();
+    if (autoUpdate.action === "restart") {
+      process.exit(autoUpdate.exitCode);
+    }
+
     switch (command) {
       case "add":
         if (!args[0]) {

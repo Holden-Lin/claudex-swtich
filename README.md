@@ -10,6 +10,7 @@
 - 每个账号支持自定义别名，`claudex-switch <alias>` 一键切换
 - `claudex-switch list` 同时显示所有账号及当前额度
 - 薄别名层架构，不破坏原有工具数据（`~/.claude-profiles/` 和 `~/.codex/accounts/`）
+- 每次运行前自动检查最新 GitHub Release，有更新时自动升级后继续执行原命令
 - Claude 支持 OAuth 订阅 + API Key
 - Codex 支持 ChatGPT OAuth + OpenAI API Key
 - macOS Keychain 凭证兼容
@@ -23,6 +24,8 @@ curl -fsSL https://raw.githubusercontent.com/Holden-Lin/claudex-switch/main/inst
 ```
 
 默认会安装最新 GitHub Release；如果仓库还没有发布过 release，会自动回退到 `main` 分支。
+
+安装后的 `claudex-switch` 每次运行时都会先检查最新 GitHub Release；如果发现新版本，会自动更新后再继续执行当前命令。
 
 也可以显式指定版本或引用：
 
@@ -191,9 +194,16 @@ claudex-switch 采用「薄别名层」架构：
 ## 注意事项
 
 - 这是非官方工具，依赖 Claude Code 和 Codex 当前的本地认证存储方式
+- 自动更新只检查最新 GitHub Release；推送到 `main` 但未发布 release 的变更不会被已安装用户自动获取
 - Codex 切换后需要重启客户端才能生效
 - 凭证文件权限设置为 `0600`，但请注意 `~/.claude-profiles/` 下的凭证副本的安全风险
 - Codex 额度显示依赖 `registry.json` 中的缓存数据，如需刷新请使用 `codex-auth` 的 API 模式
+
+如需临时关闭自动更新，可在当前命令前加上：
+
+```bash
+CLAUDEX_DISABLE_AUTO_UPDATE=1 claudex-switch list
+```
 
 ## 发布
 
