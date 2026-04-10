@@ -5,6 +5,14 @@
 - 这里记录每次已推送会话中的用户原始需求，避免后续实现偏离。
 - 当前仓库刚接入该文件，历史会话暂不补录。
 
+## 已推送需求
+
+- 2026-04-10
+  - 原话：`check current implementation of claude code switch is sound. because I need to refresh claude code oauth every other day. maybe it is because I logged out from browser right after I refreshed it or because the bad implementation.`
+  - 原话：`can you open a private browsing window so that I dont need to log out? for the others, just implement`
+  - 审计结论：实现基本正确，频繁重新认证最可能的原因是登录后注销浏览器导致 OAuth token 被撤销
+  - 修复：(1) 登录时通过 BROWSER 环境变量打开隐私窗口 (2) 修复同 profile 切换时覆盖新鲜凭据的 bug (3) 凭据文件权限从 0o644 改为 0o600
+
 ## 待推送需求
 
 - 2026-04-06
