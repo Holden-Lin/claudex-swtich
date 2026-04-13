@@ -27,6 +27,12 @@ curl -fsSL https://raw.githubusercontent.com/Holden-Lin/claudex-switch/main/inst
 
 安装后的 `claudex-switch` 每次运行时都会先检查最新 GitHub Release；如果发现新版本，会自动更新后再继续执行当前命令。
 
+如果你想手动触发升级，也可以运行：
+
+```bash
+claudex-switch update
+```
+
 也可以显式指定版本或引用：
 
 ```bash
@@ -81,6 +87,9 @@ claudex-switch add my-codex
 # 刷新已保存的登录态
 claudex-switch refresh holden
 claudex-switch refresh satoshix
+
+# 立即升级到最新 release
+claudex-switch update
 ```
 
 ### 导入已有账号
@@ -121,10 +130,11 @@ claudex-switch add work
 | `claudex-switch remove <alias>` | 只删除别名，不删除底层账号 |
 | `claudex-switch purge <alias>` | 删除底层账号及其关联别名 |
 | `claudex-switch import` | 从已有数据导入账号 |
-| `claudex-switch -version` | 显示当前版本，并检查是否已是最新 release |
+| `claudex-switch update` | 升级到最新 GitHub Release |
+| `claudex-switch --version` | 显示版本号 |
 | `claudex-switch help` | 显示帮助 |
 
-**快捷方式:** `ls` = `list`，`rm` = `remove`
+**快捷方式:** `ls` = `list`，`rm` = `remove`，`-V` = `--version`
 
 ### 刷新过期登录
 
@@ -204,6 +214,12 @@ claudex-switch 采用「薄别名层」架构：
 
 ```bash
 CLAUDEX_DISABLE_AUTO_UPDATE=1 claudex-switch list
+```
+
+如果你关闭了自动更新，之后仍然可以随时手动执行：
+
+```bash
+claudex-switch update
 ```
 
 ## 发布

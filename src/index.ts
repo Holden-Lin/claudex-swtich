@@ -15,6 +15,7 @@ import { current } from "./commands/current";
 import { importAccounts } from "./commands/import";
 import { refresh } from "./commands/refresh";
 import { version } from "./commands/version";
+import { update } from "./commands/update";
 import { blank, formatProvider } from "./lib/ui";
 import { runAutoUpdateIfNeeded } from "./lib/update";
 
@@ -33,16 +34,18 @@ const HELP = `
     claudex-switch refresh <alias>     Refresh and resave an account login
     claudex-switch current             Show active accounts
     claudex-switch import              Import existing accounts
-    claudex-switch -version            Show version and latest release status
+    claudex-switch update              Upgrade to the latest release
+    claudex-switch --version           Show version
     claudex-switch help                Show this help
 
   ${chalk.dim("Shortcuts:")}
     claudex-switch ls                  Same as 'list'
     claudex-switch rm <alias>          Same as 'remove'
+    claudex-switch -V                  Same as '--version'
 `;
 
 function isVersionCommand(command?: string): boolean {
-  return command === "-version" || command === "--version";
+  return command === "--version" || command === "-V";
 }
 
 async function interactivePicker(): Promise<void> {
@@ -108,13 +111,15 @@ async function main(): Promise<void> {
 
   try {
     if (isVersionCommand(command)) {
-      await version();
+      version();
       return;
     }
 
-    const autoUpdate = await runAutoUpdateIfNeeded();
-    if (autoUpdate.action === "restart") {
-      process.exit(autoUpdate.exitCode);
+    if (command !== "update") {
+      const autoUpdate = await runAutoUpdateIfNeeded();
+      if (autoUpdate.action === "restart") {
+        process.exit(autoUpdate.exitCode);
+      }
     }
 
     switch (command) {
@@ -192,10 +197,19 @@ async function main(): Promise<void> {
         await importAccounts();
         break;
 
+      case "update":
+        await update();
+        break;
+
       case "help":
       case "--help":
       case "-h":
         console.log(HELP);
+        break;
+
+      case "--version":
+      case "-V":
+        version();
         break;
 
       case undefined:

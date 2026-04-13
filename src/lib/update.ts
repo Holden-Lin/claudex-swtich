@@ -11,7 +11,7 @@ const DISABLE_AUTO_UPDATE_ENV = "CLAUDEX_DISABLE_AUTO_UPDATE";
 
 export const CURRENT_VERSION = normalizeVersion(packageJson.version);
 
-type InstallMethod = "brew" | "bun";
+export type InstallMethod = "brew" | "bun";
 
 type CommandResult = {
   error?: Error;
@@ -25,13 +25,36 @@ type RunCommand = (
   options?: SpawnSyncOptions,
 ) => CommandResult;
 
-type AutoUpdateOptions = {
+type UpdateOptions = {
   argv?: string[];
   env?: NodeJS.ProcessEnv;
   execPath?: string;
   fetchLatestVersion?: () => Promise<string | null>;
   runCommand?: RunCommand;
 };
+
+export type AvailableUpdate = {
+  status: "available";
+  currentVersion: string;
+  latestVersion: string;
+  installMethod: InstallMethod;
+  argv: string[];
+  env: NodeJS.ProcessEnv;
+  execPath: string;
+  runCommand: RunCommand;
+};
+
+export type UpdateCheckResult =
+  | {
+      status: "disabled" | "unavailable";
+      currentVersion: string;
+    }
+  | {
+      status: "up-to-date" | "unsupported";
+      currentVersion: string;
+      latestVersion: string;
+    }
+  | AvailableUpdate;
 
 export type AutoUpdateResult =
   | { action: "continue" }
@@ -152,58 +175,113 @@ export function detectInstallMethod(
   return null;
 }
 
-export async function runAutoUpdateIfNeeded(
-  options: AutoUpdateOptions = {},
-): Promise<AutoUpdateResult> {
+export async function checkForLatestUpdate(
+  options: UpdateOptions = {},
+  settings: { respectDisableEnv?: boolean } = {},
+): Promise<UpdateCheckResult> {
   const argv = options.argv ?? process.argv;
   const env = options.env ?? process.env;
   const execPath = options.execPath ?? process.execPath;
   const fetchLatestVersion =
     options.fetchLatestVersion ?? fetchLatestReleaseVersion;
   const runCommand = options.runCommand ?? spawnSync;
+  const respectDisableEnv = settings.respectDisableEnv ?? true;
 
   if (
-    env[SKIP_AUTO_UPDATE_ENV] === "1" ||
-    env[DISABLE_AUTO_UPDATE_ENV] === "1"
+    respectDisableEnv &&
+    (
+      env[SKIP_AUTO_UPDATE_ENV] === "1" ||
+      env[DISABLE_AUTO_UPDATE_ENV] === "1"
+    )
   ) {
-    return { action: "continue" };
+    return {
+      status: "disabled",
+      currentVersion: CURRENT_VERSION,
+    };
   }
 
   const latestVersion = await fetchLatestVersion();
-  if (!latestVersion || compareVersions(latestVersion, CURRENT_VERSION) <= 0) {
-    return { action: "continue" };
+  if (!latestVersion) {
+    return {
+      status: "unavailable",
+      currentVersion: CURRENT_VERSION,
+    };
+  }
+
+  if (compareVersions(latestVersion, CURRENT_VERSION) <= 0) {
+    return {
+      status: "up-to-date",
+      currentVersion: CURRENT_VERSION,
+      latestVersion,
+    };
   }
 
   const installMethod = detectInstallMethod(argv, execPath, runCommand);
   if (!installMethod) {
+    return {
+      status: "unsupported",
+      currentVersion: CURRENT_VERSION,
+      latestVersion,
+    };
+  }
+
+  return {
+    status: "available",
+    currentVersion: CURRENT_VERSION,
+    latestVersion,
+    installMethod,
+    argv,
+    env,
+    execPath,
+    runCommand,
+  };
+}
+
+export function installLatestUpdate(
+  update: AvailableUpdate,
+): { ok: boolean; env: NodeJS.ProcessEnv } {
+  const updateEnv = createUpdateEnv(update.env);
+  const ok =
+    update.installMethod === "brew"
+      ? updateWithHomebrew(update.runCommand, updateEnv)
+      : updateWithBun(update.latestVersion, update.runCommand, updateEnv);
+
+  return { ok, env: updateEnv };
+}
+
+export async function runAutoUpdateIfNeeded(
+  options: UpdateOptions = {},
+): Promise<AutoUpdateResult> {
+  const update = await checkForLatestUpdate(options);
+
+  if (update.status !== "available") {
     return { action: "continue" };
   }
 
   info(
-    `Updating claudex-switch from v${CURRENT_VERSION} to v${latestVersion}`,
+    `Updating claudex-switch from v${update.currentVersion} to v${update.latestVersion}`,
   );
   hint("Running self-update before continuing...");
 
-  const updateEnv = {
-    ...env,
-    [SKIP_AUTO_UPDATE_ENV]: "1",
-  };
-  const updated =
-    installMethod === "brew"
-      ? updateWithHomebrew(runCommand, updateEnv)
-      : updateWithBun(latestVersion, runCommand, updateEnv);
-
-  if (!updated) {
+  const installed = installLatestUpdate(update);
+  if (!installed.ok) {
     hint("Auto-update failed; continuing with current version.");
     return { action: "continue" };
   }
 
-  const restart = runCommand(argv[0] ?? execPath, argv.slice(1), {
-    env: updateEnv,
+  const restart = update.runCommand(update.argv[0] ?? update.execPath, update.argv.slice(1), {
+    env: installed.env,
     stdio: "inherit",
   });
 
   return { action: "restart", exitCode: restart.status ?? 1 };
+}
+
+function createUpdateEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return {
+    ...env,
+    [SKIP_AUTO_UPDATE_ENV]: "1",
+  };
 }
 
 function updateWithHomebrew(

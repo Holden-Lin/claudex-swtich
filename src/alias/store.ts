@@ -19,9 +19,12 @@ const RESERVED = new Set([
   "purge",
   "current",
   "import",
+  "update",
   "help",
   "--help",
   "-h",
+  "--version",
+  "-v",
 ]);
 
 async function ensureDir(): Promise<void> {

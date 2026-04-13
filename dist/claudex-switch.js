@@ -5,43 +5,25 @@ var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-function __accessProp(key) {
-  return this[key];
-}
-var __toESMCache_node;
-var __toESMCache_esm;
 var __toESM = (mod, isNodeMode, target) => {
-  var canCache = mod != null && typeof mod === "object";
-  if (canCache) {
-    var cache = isNodeMode ? __toESMCache_node ??= new WeakMap : __toESMCache_esm ??= new WeakMap;
-    var cached = cache.get(mod);
-    if (cached)
-      return cached;
-  }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
   const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
   for (let key of __getOwnPropNames(mod))
     if (!__hasOwnProp.call(to, key))
       __defProp(to, key, {
-        get: __accessProp.bind(mod, key),
+        get: () => mod[key],
         enumerable: true
       });
-  if (canCache)
-    cache.set(mod, to);
   return to;
 };
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
-var __returnValue = (v) => v;
-function __exportSetter(name, newValue) {
-  this[name] = __returnValue.bind(null, newValue);
-}
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, {
       get: all[name],
       enumerable: true,
       configurable: true,
-      set: __exportSetter.bind(all, name)
+      set: (newValue) => all[name] = () => newValue
     });
 };
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
@@ -2192,6 +2174,7 @@ Object.defineProperties(createChalk.prototype, styles2);
 var chalk = createChalk();
 var chalkStderr = createChalk({ level: stderrColor ? stderrColor.level : 0 });
 var source_default = chalk;
+
 // node_modules/@inquirer/core/dist/esm/lib/key.js
 var isUpKey = (key, keybindings = []) => key.name === "up" || keybindings.includes("vim") && key.name === "k" || keybindings.includes("emacs") && key.ctrl && key.name === "p";
 var isDownKey = (key, keybindings = []) => key.name === "down" || keybindings.includes("vim") && key.name === "j" || keybindings.includes("emacs") && key.ctrl && key.name === "n";
@@ -2336,7 +2319,7 @@ var effectScheduler = {
 // node_modules/@inquirer/core/dist/esm/lib/use-state.js
 function useState(defaultValue) {
   return withPointer((pointer) => {
-    const setState = AsyncResource2.bind(function setState2(newValue) {
+    const setState = AsyncResource2.bind(function setState(newValue) {
       if (pointer.get() !== newValue) {
         pointer.set(newValue);
         handleChange();
@@ -3532,9 +3515,12 @@ var RESERVED = new Set([
   "purge",
   "current",
   "import",
+  "update",
   "help",
   "--help",
-  "-h"
+  "-h",
+  "--version",
+  "-v"
 ]);
 async function ensureDir() {
   await mkdir(CLAUDEX_DIR, { recursive: true });
@@ -5040,22 +5026,6 @@ async function fetchLatestReleaseVersion(fetchImpl = fetch) {
     return null;
   }
 }
-async function getVersionCheck(fetchLatestVersion = fetchLatestReleaseVersion) {
-  const latestVersion = await fetchLatestVersion();
-  if (!latestVersion) {
-    return {
-      currentVersion: CURRENT_VERSION,
-      latestVersion: null,
-      status: "unknown"
-    };
-  }
-  const comparison = compareVersions(CURRENT_VERSION, latestVersion);
-  return {
-    currentVersion: CURRENT_VERSION,
-    latestVersion,
-    status: comparison < 0 ? "outdated" : comparison > 0 ? "ahead" : "latest"
-  };
-}
 function detectInstallMethod(argv = process.argv, execPath = process.execPath, runCommand = spawnSync3) {
   const brewPrefix = readCommandStdout(runCommand("brew", ["--prefix"], {
     encoding: "utf-8",
@@ -5073,39 +5043,80 @@ function detectInstallMethod(argv = process.argv, execPath = process.execPath, r
   }
   return null;
 }
-async function runAutoUpdateIfNeeded(options = {}) {
+async function checkForLatestUpdate(options = {}, settings = {}) {
   const argv = options.argv ?? process.argv;
   const env2 = options.env ?? process.env;
   const execPath = options.execPath ?? process.execPath;
   const fetchLatestVersion = options.fetchLatestVersion ?? fetchLatestReleaseVersion;
   const runCommand = options.runCommand ?? spawnSync3;
-  if (env2[SKIP_AUTO_UPDATE_ENV] === "1" || env2[DISABLE_AUTO_UPDATE_ENV] === "1") {
-    return { action: "continue" };
+  const respectDisableEnv = settings.respectDisableEnv ?? true;
+  if (respectDisableEnv && (env2[SKIP_AUTO_UPDATE_ENV] === "1" || env2[DISABLE_AUTO_UPDATE_ENV] === "1")) {
+    return {
+      status: "disabled",
+      currentVersion: CURRENT_VERSION
+    };
   }
   const latestVersion = await fetchLatestVersion();
-  if (!latestVersion || compareVersions(latestVersion, CURRENT_VERSION) <= 0) {
-    return { action: "continue" };
+  if (!latestVersion) {
+    return {
+      status: "unavailable",
+      currentVersion: CURRENT_VERSION
+    };
+  }
+  if (compareVersions(latestVersion, CURRENT_VERSION) <= 0) {
+    return {
+      status: "up-to-date",
+      currentVersion: CURRENT_VERSION,
+      latestVersion
+    };
   }
   const installMethod = detectInstallMethod(argv, execPath, runCommand);
   if (!installMethod) {
+    return {
+      status: "unsupported",
+      currentVersion: CURRENT_VERSION,
+      latestVersion
+    };
+  }
+  return {
+    status: "available",
+    currentVersion: CURRENT_VERSION,
+    latestVersion,
+    installMethod,
+    argv,
+    env: env2,
+    execPath,
+    runCommand
+  };
+}
+function installLatestUpdate(update) {
+  const updateEnv = createUpdateEnv(update.env);
+  const ok = update.installMethod === "brew" ? updateWithHomebrew(update.runCommand, updateEnv) : updateWithBun(update.latestVersion, update.runCommand, updateEnv);
+  return { ok, env: updateEnv };
+}
+async function runAutoUpdateIfNeeded(options = {}) {
+  const update = await checkForLatestUpdate(options);
+  if (update.status !== "available") {
     return { action: "continue" };
   }
-  info(`Updating claudex-switch from v${CURRENT_VERSION} to v${latestVersion}`);
+  info(`Updating claudex-switch from v${update.currentVersion} to v${update.latestVersion}`);
   hint("Running self-update before continuing...");
-  const updateEnv = {
-    ...env2,
-    [SKIP_AUTO_UPDATE_ENV]: "1"
-  };
-  const updated = installMethod === "brew" ? updateWithHomebrew(runCommand, updateEnv) : updateWithBun(latestVersion, runCommand, updateEnv);
-  if (!updated) {
+  const installed = installLatestUpdate(update);
+  if (!installed.ok) {
     hint("Auto-update failed; continuing with current version.");
     return { action: "continue" };
   }
-  const restart = runCommand(argv[0] ?? execPath, argv.slice(1), {
-    env: updateEnv,
+  const restart = update.runCommand(update.argv[0] ?? update.execPath, update.argv.slice(1), {
+    env: installed.env,
     stdio: "inherit"
   });
   return { action: "restart", exitCode: restart.status ?? 1 };
+}
+function createUpdateEnv(env2) {
+  return {
+    ...env2,
+    [SKIP_AUTO_UPDATE_ENV]: "1"
+  };
 }
 function updateWithHomebrew(runCommand, env2) {
   const result = runCommand("brew", ["install", "--formula", HOMEBREW_FORMULA_URL], {
@@ -5152,34 +5163,51 @@ function resolveCliPath(argv, execPath) {
 }
 
 // src/commands/version.ts
-async function version(options = {}) {
-  const writeLine = options.writeLine ?? console.log;
-  const result = await getVersionCheck(options.fetchLatestVersion);
-  writeLine();
-  writeLine(`  claudex-switch v${result.currentVersion}`);
-  if (!result.latestVersion) {
-    writeLine(source_default.dim("  Latest release: unavailable"));
-    writeLine(source_default.dim("  Status: unable to determine whether this is the latest version"));
-    writeLine();
-    return;
-  }
-  writeLine(`  Latest release: v${result.latestVersion}`);
+function version() {
+  console.log(CURRENT_VERSION);
+}
+
+// src/commands/update.ts
+async function update() {
+  blank();
+  const result = await checkForLatestUpdate({}, {
+    respectDisableEnv: false
+  });
   switch (result.status) {
-    case "latest":
-      writeLine(source_default.green("  Status: up to date"));
-      break;
-    case "outdated":
-      writeLine(source_default.yellow("  Status: update available"));
-      writeLine(source_default.dim("  Run any claudex-switch command to auto-update"));
-      break;
-    case "ahead":
-      writeLine(source_default.cyan("  Status: ahead of the latest GitHub release"));
-      break;
-    case "unknown":
-      writeLine(source_default.dim("  Status: unable to determine whether this is the latest version"));
-      break;
+    case "available": {
+      info(`Updating claudex-switch from v${result.currentVersion} to v${result.latestVersion}`);
+      hint("Running self-update...");
+      const installed = installLatestUpdate(result);
+      if (!installed.ok) {
+        blank();
+        error("Update failed.");
+        hint(`If this install is managed externally, reinstall it manually or retry ${source_default.cyan("claudex-switch update")}.`);
+        blank();
+        process.exit(1);
+      }
+      success(`Updated to v${result.latestVersion}`);
+      blank();
+      return;
+    }
+    case "up-to-date":
+      info(`claudex-switch is already up to date (v${result.currentVersion})`);
+      blank();
+      return;
+    case "unsupported":
+      error("Could not determine how this claudex-switch install was installed.");
+      hint("Automatic update currently supports Bun and Homebrew installs.");
+      blank();
+      process.exit(1);
+    case "unavailable":
+      error("Could not determine the latest release version.");
+      hint("Check your network connection and GitHub Release availability.");
+      blank();
+      process.exit(1);
+    case "disabled":
+      info(`claudex-switch is already up to date (v${result.currentVersion})`);
+      blank();
+      return;
   }
-  writeLine();
 }
 
 // src/index.ts
@@ -5198,15 +5226,17 @@ var HELP = `
     claudex-switch refresh <alias>     Refresh and resave an account login
     claudex-switch current             Show active accounts
     claudex-switch import              Import existing accounts
-    claudex-switch -version            Show version and latest release status
+    claudex-switch update              Upgrade to the latest release
+    claudex-switch --version           Show version
     claudex-switch help                Show this help
 
   ${source_default.dim("Shortcuts:")}
     claudex-switch ls                  Same as 'list'
     claudex-switch rm <alias>          Same as 'remove'
+    claudex-switch -V                  Same as '--version'
 `;
 function isVersionCommand(command) {
-  return command === "-version" || command === "--version";
+  return command === "--version" || command === "-V";
 }
 async function interactivePicker() {
   const aliasReg = await loadAliases();
@@ -5249,12 +5279,14 @@ async function main() {
   const [command, ...args] = process.argv.slice(2);
   try {
     if (isVersionCommand(command)) {
-      await version();
+      version();
       return;
     }
-    const autoUpdate = await runAutoUpdateIfNeeded();
-    if (autoUpdate.action === "restart") {
-      process.exit(autoUpdate.exitCode);
+    if (command !== "update") {
+      const autoUpdate = await runAutoUpdateIfNeeded();
+      if (autoUpdate.action === "restart") {
+        process.exit(autoUpdate.exitCode);
+      }
     }
     switch (command) {
       case "add":
@@ -5322,10 +5354,17 @@ async function main() {
       case "import":
         await importAccounts();
         break;
+      case "update":
+        await update();
+        break;
       case "help":
       case "--help":
       case "-h":
         console.log(HELP);
+        break;
+      case "--version":
+      case "-V":
+        version();
         break;
       case undefined:
         await interactivePicker();

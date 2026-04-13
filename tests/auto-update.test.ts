@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+  checkForLatestUpdate,
   compareVersions,
   detectInstallMethod,
   extractVersionFromReleaseUrl,
   getVersionCheck,
+  installLatestUpdate,
   runAutoUpdateIfNeeded,
 } from "../src/lib/update";
 
@@ -144,6 +146,55 @@ describe("auto update", () => {
       "bun --version",
       "bun install -g git+https://github.com/Holden-Lin/claudex-switch.git#v9.8.7",
       "node /tmp/claudex-switch.js list",
+    ]);
+  });
+
+  test("manual update ignores the auto-update disable env flag", async () => {
+    const calls: string[] = [];
+
+    const available = await checkForLatestUpdate(
+      {
+        argv: ["node", "/tmp/claudex-switch.js", "update"],
+        env: { CLAUDEX_DISABLE_AUTO_UPDATE: "1" },
+        execPath: "/usr/local/bin/node",
+        fetchLatestVersion: async () => "9.8.7",
+        runCommand: (command, args, options) => {
+          calls.push(`${command} ${args.join(" ")}`);
+
+          if (command === "brew") {
+            return { status: 1 };
+          }
+
+          if (command === "bun" && args[0] === "--version") {
+            return { status: 0 };
+          }
+
+          if (command === "bun" && args[0] === "install") {
+            expect(options?.env?.CLAUDEX_SKIP_AUTO_UPDATE).toBe("1");
+            expect(options?.env?.CLAUDEX_DISABLE_AUTO_UPDATE).toBe("1");
+            return { status: 0 };
+          }
+
+          throw new Error(`Unexpected command: ${command} ${args.join(" ")}`);
+        },
+      },
+      { respectDisableEnv: false },
+    );
+
+    expect(available.status).toBe("available");
+
+    if (available.status !== "available") {
+      throw new Error(`Expected available update, received ${available.status}`);
+    }
+
+    const installed = installLatestUpdate(available);
+
+    expect(installed.ok).toBe(true);
+    expect(installed.env.CLAUDEX_SKIP_AUTO_UPDATE).toBe("1");
+    expect(calls).toEqual([
+      "brew --prefix",
+      "bun --version",
+      "bun install -g git+https://github.com/Holden-Lin/claudex-switch.git#v9.8.7",
     ]);
   });
 

@@ -27,6 +27,12 @@ By default this installs the latest GitHub Release. If no release exists yet, it
 
 After installation, `claudex-switch` checks the latest GitHub Release before each run. When a newer release exists, it upgrades itself and then continues the original command.
 
+To trigger an upgrade manually, run:
+
+```bash
+claudex-switch update
+```
+
 You can also pin a version or ref:
 
 ```bash
@@ -81,6 +87,9 @@ claudex-switch add my-codex
 # Refresh a saved login
 claudex-switch refresh holden
 claudex-switch refresh satoshix
+
+# Upgrade to the latest release now
+claudex-switch update
 ```
 
 ### Import Existing Accounts
@@ -121,10 +130,11 @@ Then choose an account type:
 | `claudex-switch remove <alias>` | Remove an alias only |
 | `claudex-switch purge <alias>` | Delete an account and its linked aliases |
 | `claudex-switch import` | Import from existing data |
-| `claudex-switch -version` | Show the current version and whether it matches the latest release |
+| `claudex-switch update` | Upgrade to the latest GitHub Release |
+| `claudex-switch --version` | Show version |
 | `claudex-switch help` | Show help |
 
-**Shortcuts:** `ls` = `list`, `rm` = `remove`
+**Shortcuts:** `ls` = `list`, `rm` = `remove`, `-V` = `--version`
 
 ### Refresh Expired Logins
 
@@ -204,6 +214,12 @@ To temporarily disable auto-update for a single run:
 
 ```bash
 CLAUDEX_DISABLE_AUTO_UPDATE=1 claudex-switch list
+```
+
+Even with auto-update disabled, you can still upgrade manually at any time:
+
+```bash
+claudex-switch update
 ```
 
 ## Release

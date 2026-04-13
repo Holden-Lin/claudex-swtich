@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { stat } from "fs/promises";
 import {
   addAlias,
+  isValidAlias,
   loadAliases,
   renameAlias,
 } from "../src/alias/store";
@@ -57,5 +58,11 @@ describe("alias store", () => {
     await expect(renameAlias("codex-main", "work")).rejects.toThrow(
       'Alias "work" already exists',
     );
+  });
+
+  test("rejects reserved version flags as aliases", () => {
+    expect(isValidAlias("update")).toBe(false);
+    expect(isValidAlias("--version")).toBe(false);
+    expect(isValidAlias("-V")).toBe(false);
   });
 });
