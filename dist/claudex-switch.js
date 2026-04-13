@@ -4943,7 +4943,7 @@ import { spawnSync as spawnSync3 } from "child_process";
 // package.json
 var package_default = {
   name: "claudex-switch",
-  version: "1.1.1",
+  version: "1.1.2",
   description: "Switch between Claude Code and Codex accounts with ease",
   type: "module",
   bin: {
@@ -4957,6 +4957,7 @@ var package_default = {
     dev: "bun run src/index.ts",
     test: "bun test --preload ./tests/preload.ts",
     verify: "bun run test && bun run build && bun ./dist/claudex-switch.js help >/dev/null",
+    "release:guard": "bash ./scripts/check-release-state.sh",
     prepublishOnly: "bun run verify"
   },
   repository: {

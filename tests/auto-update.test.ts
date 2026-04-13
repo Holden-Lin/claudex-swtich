@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import packageJson from "../package.json";
 import {
   checkForLatestUpdate,
   compareVersions,
@@ -30,11 +31,11 @@ describe("auto update", () => {
   });
 
   test("reports when the installed version is already the latest", async () => {
-    const result = await getVersionCheck(async () => "1.1.1");
+    const result = await getVersionCheck(async () => packageJson.version);
 
     expect(result).toEqual({
-      currentVersion: "1.1.1",
-      latestVersion: "1.1.1",
+      currentVersion: packageJson.version,
+      latestVersion: packageJson.version,
       status: "latest",
     });
   });
@@ -43,7 +44,7 @@ describe("auto update", () => {
     const result = await getVersionCheck(async () => "1.2.0");
 
     expect(result).toEqual({
-      currentVersion: "1.1.1",
+      currentVersion: packageJson.version,
       latestVersion: "1.2.0",
       status: "outdated",
     });
@@ -53,7 +54,7 @@ describe("auto update", () => {
     const result = await getVersionCheck(async () => null);
 
     expect(result).toEqual({
-      currentVersion: "1.1.1",
+      currentVersion: packageJson.version,
       latestVersion: null,
       status: "unknown",
     });

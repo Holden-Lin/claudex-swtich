@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -27,3 +29,7 @@ jobs:
 
       - name: Run verification
         run: bun run verify
+
+      - name: Enforce release prep on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: bun run release:guard
