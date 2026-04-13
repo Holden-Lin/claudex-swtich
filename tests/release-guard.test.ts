@@ -7,7 +7,7 @@ import {
   writeFile,
 } from "fs/promises";
 import { tmpdir } from "os";
-import { dirname, join } from "path";
+import { dirname, join, resolve } from "path";
 
 async function run(command: string, args: string[], cwd: string) {
   const result = spawnSync(command, args, {
@@ -58,9 +58,11 @@ async function initRepo(
 }
 
 function runGuard(rootDir: string, latestTag: string) {
+  const scriptPath = resolve(process.cwd(), "scripts/check-release-state.sh");
+
   return spawnSync(
     "bash",
-    ["/Users/holden/code/claudex-switch/scripts/check-release-state.sh"],
+    [scriptPath],
     {
       cwd: rootDir,
       encoding: "utf-8",
